@@ -2,27 +2,21 @@
 
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
-use App\Models\User;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
-//Should retrieve data from database
-Route::get('/products', ProductController::class . '@index');
+// Product Routes
+Route::get('/products', [ProductController::class, 'index']);         // Get all products
+Route::get('/products/{id}', [ProductController::class, 'show']);     // Get a specific product
+Route::post('/products', [ProductController::class, 'store']);        // Create a new product
+Route::put('/products/{id}', [ProductController::class, 'update']);   // Update a product
+Route::delete('/products/{id}', [ProductController::class, 'destroy']);// Delete a product
 
-Route::get('/products/{id}', ProductController::class . '@show');
+// Auth Routes
+Route::post('/register', [UserController::class, 'register']); // Register new user
+Route::post('/login', [UserController::class, 'login']);       // Login user
 
-// Create new product
-Route::post('/products', ProductController::class . '@store');
-
-
-// Update product
-Route::put('/products/{id}', ProductController::class . '@update');
-
-// Delete product
-Route::delete('/products/{id}', ProductController::class . '@destroy');
-
-// user registration
-
-Route::post('/register', UserController::class . '@register');
-
-Route::post('/login', UserController::class . '@login');
+// Authenticated Route to Get User Info
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
+});
