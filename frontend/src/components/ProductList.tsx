@@ -10,8 +10,20 @@ interface ProductListProps {
   onDelete: (productId: string) => void;
 }
 
-export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDelete }) => {
-  if (products.length === 0) {
+export const ProductList: React.FC<ProductListProps> = ({ products = [], onEdit, onDelete }) => {
+  if (!Array.isArray(products)) products = [];
+  // Defensive: ensure every product has required fields
+  const safeProducts = products.map(product => ({
+    ...product,
+    category: product.category || '',
+    price: typeof product.price === 'number' ? product.price : 0,
+    description: product.description || '',
+    features: Array.isArray(product.features) ? product.features : [],
+    keywords: Array.isArray(product.keywords) ? product.keywords : [],
+    aiGenerated: !!product.aiGenerated,
+  }));
+
+  if (safeProducts.length === 0) {
     return (
       <Card className="text-center py-12">
         <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -27,7 +39,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDe
       <h2 className="text-2xl font-bold text-gray-900">Your Products</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((product) => (
+        {safeProducts.map((product) => (
           <Card key={product.id} className="relative">
             {product.aiGenerated && (
               <div className="absolute top-4 right-4">

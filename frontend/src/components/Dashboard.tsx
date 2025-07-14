@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Package, Sparkles, LogOut, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { ProductForm } from './ProductForm';
@@ -11,6 +11,21 @@ export const Dashboard: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<'products' | 'add'>('products');
   const { user, logout } = useAuth();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch('http://localhost:8000/api/products')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch products');
+        return res.json();
+      })
+      .then(data => setProducts(data))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleProductSave = (product: Product) => {
     setProducts(prev => {
@@ -84,7 +99,11 @@ export const Dashboard: React.FC = () => {
         </Card>
 
         {/* Content */}
-        {activeTab === 'products' ? (
+        {loading ? (
+          <div className="text-center py-8 text-lg text-gray-500">Loading products...</div>
+        ) : error ? (
+          <div className="text-center py-8 text-lg text-red-500">{error}</div>
+        ) : activeTab === 'products' ? (
           <ProductList
             products={products}
             onEdit={(product) => {
