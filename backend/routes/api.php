@@ -23,3 +23,12 @@ Route::delete('/products/{id}', ProductController::class . '@destroy');
 
 // user registration
 route::post('/user', UserController::class . '@register');
+
+// AiDescriptionLog CRUD
+use App\Http\Controllers\AiDescriptionLogController;
+Route::get('/ai-description-logs', AiDescriptionLogController::class . '@index');
+Route::get('/ai-description-logs/{id}', AiDescriptionLogController::class . '@show');
+Route::post('/ai-description-logs', AiDescriptionLogController::class . '@store');
+Route::put('/ai-description-logs/{id}',AiDescriptionLogController::class . '@update');
+Route::delete('/ai-description-logs/{id}', AiDescriptionLogController::class . '@destroy');
+Route::post('/ai-description-logs/generate/{id}', AiDescriptionLogController::class . '@generateDescription');
