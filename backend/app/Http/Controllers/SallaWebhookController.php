@@ -15,7 +15,7 @@ class SallaWebhookController extends Controller
         $payload = $request->all();
         
         // Example: Check for the 'products.updated' event from Salla
-        if ($payload['event'] === 'products.updated') {
+        if ($payload['event'] === 'product.updated') {
             $productData = $payload['data'];
             
             // Assuming you have a local Product model
