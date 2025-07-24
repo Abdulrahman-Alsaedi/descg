@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AiDescriptionLogController;
 use App\Http\Controllers\SallaWebhookController;
+use App\Http\Controllers\HandleProductCreatedController;
 
 
 
@@ -37,3 +38,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
 });
     Route::post('/salla/webhook', [SallaWebhookController::class, 'handle']);
+
+    Route::post('/product-created', [HandleProductCreatedController::class, 'handleProductCreated']);
+    
