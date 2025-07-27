@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User as UserIcon, Sparkles } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
@@ -9,29 +10,58 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const { error, success } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
+
+    // Validation
+    if (!name || !email || !password) {
+      error('Please fill all required fields');
+      setLoading(false);
+      return;
+    }
+
+    if (!email.includes('@')) {
+      error('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      error('Password must be at least 6 characters long');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Replace with your backend API endpoint
       const response = await fetch('https://descg.store/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password })
       });
-      if (!response.ok) throw new Error('Failed to sign up');
-      setSuccess('Account created! You can now log in.');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.message?.includes('email')) {
+          throw new Error('Email already exists');
+        }
+        throw new Error('Failed to create account');
+      }
+
+      success('Account created successfully! You can now log in.');
       setName('');
       setEmail('');
       setPassword('');
       if (onSignUpSuccess) onSignUpSuccess();
+      
     } catch (err: any) {
-      setError(err.message || 'Sign up failed');
+      if (err.message === 'Email already exists') {
+        error('An account with this email already exists');
+      } else {
+        error('Failed to create account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -72,8 +102,7 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
             placeholder="Enter your password"
             required
           />
-          {error && <div className="text-red-600 text-sm text-center">{error}</div>}
-          {success && <div className="text-green-600 text-sm text-center">{success}</div>}
+          
           <Button type="submit" loading={loading} className="w-full" size="lg">
             Sign Up
           </Button>

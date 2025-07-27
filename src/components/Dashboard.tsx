@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Package, Sparkles, LogOut, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { ProductForm } from './ProductForm';
 import { ProductList } from './ProductList';
 import { Button } from './ui/Button';
@@ -12,8 +13,9 @@ export const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'add'>('products');
   const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
   const { user, logout } = useAuth();
+  const { success, error } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [errorState, setErrorState] = useState<string | null>(null);
 
   // Helper function to get auth headers
   const getAuthHeaders = () => {
@@ -27,7 +29,6 @@ export const Dashboard: React.FC = () => {
 
   const fetchProducts = () => {
     setLoading(true);
-    setError(null);
     fetch('https://descg.store/api/products', {
       headers: getAuthHeaders()
     })
@@ -36,7 +37,7 @@ export const Dashboard: React.FC = () => {
         return res.json();
       })
       .then(data => setProducts(data))
-      .catch(err => setError(err.message))
+      .catch(err => error('Failed to load products. Please try again.'))
       .finally(() => setLoading(false));
   };
 
@@ -46,7 +47,6 @@ export const Dashboard: React.FC = () => {
 
   const handleProductSave = async (product: Product) => {
     setLoading(true);
-    setError(null);
     try {
       let response;
       // Check if it's an existing product (has numeric ID, not temp ID)
@@ -69,11 +69,23 @@ export const Dashboard: React.FC = () => {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to save product');
       }
+      
       fetchProducts();
       setEditingProduct(undefined);
       setActiveTab('products');
+      
+      // Show success message
+      success(isExistingProduct ? 'Product updated successfully' : 'Product added successfully');
+      
     } catch (err: any) {
-      setError(err.message);
+      // Show user-friendly error message
+      if (err.message.includes('validation')) {
+        error('Please fill all required fields');
+      } else if (err.message.includes('unauthorized')) {
+        error('You are not authorized to perform this action');
+      } else {
+        error('Failed to save product. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -81,16 +93,22 @@ export const Dashboard: React.FC = () => {
 
   const handleProductDelete = async (productId: string) => {
     setLoading(true);
-    setError(null);
     try {
       const response = await fetch(`https://descg.store/api/products/${productId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
       if (!response.ok) throw new Error('Failed to delete product');
+      
       fetchProducts();
+      success('Product deleted successfully');
+      
     } catch (err: any) {
-      setError(err.message);
+      if (err.message.includes('unauthorized')) {
+        error('You are not authorized to delete this product');
+      } else {
+        error('Failed to delete product. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -161,8 +179,6 @@ export const Dashboard: React.FC = () => {
         {/* Content */}
         {loading ? (
           <div className="text-center py-8 text-lg text-gray-500">Loading products...</div>
-        ) : error ? (
-          <div className="text-center py-8 text-lg text-red-500">{error}</div>
         ) : editingProduct ? (
           <ProductForm
             product={editingProduct}
@@ -178,6 +194,10 @@ export const Dashboard: React.FC = () => {
               setEditingProduct(product);
             }}
             onDelete={handleProductDelete}
+            onAddProduct={() => {
+              setEditingProduct(undefined);
+              setActiveTab('add');
+            }}
           />
         ) : (
           <ProductForm
