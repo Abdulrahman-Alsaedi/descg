@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('http://localhost:8000/api/user', {
+      const res = await fetch('https://api.descg.store/api/user', {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/login', {
+      const response = await fetch('https://api.descg.store/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (name: string, email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/register', {
+      const response = await fetch('https://api.descg.store/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

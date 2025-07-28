@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
@@ -14,18 +15,31 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const { login } = useAuth();
+  const { error, success } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+
+    // Validation
+    if (!email || !password) {
+      error('Please fill all required fields');
+      setLoading(false);
+      return;
+    }
+
+    if (!email.includes('@')) {
+      error('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
 
     try {
       await login(email, password);
+      success('Login successful! Welcome back!');
     } catch (err) {
-      setError('Invalid email or password');
+      error('Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -60,10 +74,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp }) => {
             placeholder="Enter your password"
             required
           />
-
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
 
           <Button
             type="submit"
