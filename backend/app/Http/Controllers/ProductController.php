@@ -43,8 +43,17 @@ class ProductController extends Controller
             'category' => 'nullable|string|max:100',
             'features' => 'nullable|array',
             'keywords' => 'nullable|array',
+            'tone' => 'nullable|in:professional,friendly,casual,luxury,playful,emotional',
+            'length' => 'nullable|in:short,medium,long',
+            'language' => 'nullable|in:العربية,English,كلاهما',
+            'ai_provider' => 'nullable|in:gemini,deepseek',
             'description' => 'nullable|string'
         ]);
+
+        // Check if user is authenticated
+        if (!$request->user()) {
+            return response()->json(['error' => 'User not authenticated'], 401);
+        }
 
         // Create product for the authenticated user
         $product = Product::create([
@@ -53,10 +62,12 @@ class ProductController extends Controller
             'price' => $request->input('price'),
             'sku' => $request->input('sku'),
             'category' => $request->input('category'),
-            'features' => json_encode($request->input('features', [])),
-            'keywords' => json_encode($request->input('keywords', [])),
+            'features' => $request->input('features', []),
+            'keywords' => $request->input('keywords', []),
             'tone' => $request->input('tone'),
             'length' => $request->input('length'),
+            'language' => $request->input('language', 'اللغتين معاً'),
+            'ai_provider' => $request->input('ai_provider', 'gemini'),
             'final_description' => $request->input('description'),
         ]);
 
@@ -85,14 +96,22 @@ class ProductController extends Controller
             'category' => 'nullable|string|max:100',
             'features' => 'nullable|array',
             'keywords' => 'nullable|array',
+            'tone' => 'nullable|in:professional,friendly,casual,luxury,playful,emotional',
+            'length' => 'nullable|in:short,medium,long',
+            'language' => 'nullable|in:العربية,English,كلاهما',
+            'ai_provider' => 'nullable|in:gemini,deepseek',
             'description' => 'nullable|string'
         ]);
         
         $product->name = $request->input('name');
         $product->price = $request->input('price');
         $product->category = $request->input('category');
-        $product->features = json_encode($request->input('features', []));
-        $product->keywords = json_encode($request->input('keywords', []));
+        $product->features = $request->input('features', []);
+        $product->keywords = $request->input('keywords', []);
+        $product->tone = $request->input('tone');
+        $product->length = $request->input('length');
+        $product->language = $request->input('language');
+        $product->ai_provider = $request->input('ai_provider');
         $product->final_description = $request->input('description');
         $product->save();
         

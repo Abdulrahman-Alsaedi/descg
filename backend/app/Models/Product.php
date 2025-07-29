@@ -17,7 +17,14 @@ class Product extends Model
         'keywords',
         'tone',
         'length',
+        'language',
+        'ai_provider',
         'final_description',
+    ];
+
+    protected $casts = [
+        'features' => 'array',
+        'keywords' => 'array',
     ];
 
      public function user()

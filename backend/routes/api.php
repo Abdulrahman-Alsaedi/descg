@@ -35,9 +35,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/ai-description-logs', [AiDescriptionLogController::class, 'store']);
     Route::put('/ai-description-logs/{id}', [AiDescriptionLogController::class, 'update']);
     Route::delete('/ai-description-logs/{id}', [AiDescriptionLogController::class, 'destroy']);
-    Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
+    //Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
+    Route::get('/ai-description/extract/{logId}/{language}', [AiDescriptionLogController::class, 'getDescriptionByLanguage'])
+        ->whereIn('language', ['العربية', 'English']);
 });
     Route::post('/salla/webhook', [SallaWebhookController::class, 'handle']);
 
     Route::post('/product-created', [HandleProductCreatedController::class, 'handleProductCreated']);
     
+    Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
