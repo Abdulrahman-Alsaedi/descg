@@ -11,8 +11,6 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { error, success } = useToast();
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   // Get Salla OAuth params from URL
   const code = getUrlParam('code');
@@ -48,11 +46,6 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
     }
 
     try {
-      const response = await fetch('https://api.descg.store/api/register', {
-    setError('');
-    setSuccess('');
-
-    try {
       const payload: any = { name, email, password };
 
       // Add Salla params to payload if available
@@ -65,25 +58,22 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      
+
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.message?.includes('email')) {
+        if (data.message?.includes('email')) {
           throw new Error('Email already exists');
         }
         throw new Error('Failed to create account');
       }
 
       success('Account created successfully! You can now log in.');
-
-      if (!response.ok) throw new Error('Failed to sign up');
-
-      setSuccess('Account created! You can now log in.');
       setName('');
       setEmail('');
       setPassword('');
       if (onSignUpSuccess) onSignUpSuccess();
-      
+
     } catch (err: any) {
       if (err.message === 'Email already exists') {
         error('An account with this email already exists');
@@ -130,7 +120,6 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
             placeholder="Enter your password"
             required
           />
-          
           <Button type="submit" loading={loading} className="w-full" size="lg">
             Sign Up
           </Button>
