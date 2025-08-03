@@ -10,7 +10,16 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    sallaData?: {
+      salla_code?: string | null;
+      salla_scope?: string | null;
+      salla_state?: string | null;
+    }
+  ) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -66,13 +75,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      const payload = { email, password };
+
       const response = await fetch('http://localhost:8000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -81,12 +92,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const data = await response.json();
 
-      // Store token and set user data immediately
       localStorage.setItem('token', data.token);
       if (data.user) {
         setUser(data.user);
       } else {
-        // Fallback to fetching user data
         await fetchUser();
       }
     } catch (error) {
@@ -97,31 +106,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    sallaData?: {
+      salla_code?: string | null;
+      salla_scope?: string | null;
+      salla_state?: string | null;
+    }
+  ) => {
     setIsLoading(true);
     try {
+      const payload: any = { name, email, password };
+
+      if (sallaData) {
+        if (sallaData.salla_code) payload.salla_code = sallaData.salla_code;
+        if (sallaData.salla_scope) payload.salla_scope = sallaData.salla_scope;
+        if (sallaData.salla_state) payload.salla_state = sallaData.salla_state;
+      }
+
       const response = await fetch('http://localhost:8000/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Registration failed');
-      }
 
       const data = await response.json();
 
-      // Store token and set user data immediately
+      if (!response.ok) {
+        throw new Error(data.message || 'Registration failed');
+      }
+
       localStorage.setItem('token', data.token);
       if (data.user) {
         setUser(data.user);
       } else {
-        // Fallback to fetching user data
         await fetchUser();
       }
     } catch (error) {

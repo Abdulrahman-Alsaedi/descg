@@ -12,19 +12,38 @@ export const SignUpForm: React.FC<{ onSignUpSuccess?: () => void }> = ({ onSignU
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Get Salla OAuth params from URL
+  const code = getUrlParam('code');
+  const scope = getUrlParam('scope');
+  const state = getUrlParam('state');
+
+  function getUrlParam(key: string): string | null {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(key);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess('');
+
     try {
-      // Replace with your backend API endpoint
+      const payload: any = { name, email, password };
+
+      // Add Salla params to payload if available
+      if (code) payload.salla_code = code;
+      if (scope) payload.salla_scope = scope;
+      if (state) payload.salla_state = state;
+
       const response = await fetch('http://localhost:8000/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify(payload),
       });
+
       if (!response.ok) throw new Error('Failed to sign up');
+
       setSuccess('Account created! You can now log in.');
       setName('');
       setEmail('');
