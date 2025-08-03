@@ -8,9 +8,10 @@ interface ProductListProps {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
+  onAddProduct?: () => void;
 }
 
-export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDelete }) => {
+export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDelete, onAddProduct }) => {
   const items: Product[] = Array.isArray(products) ? products : [];
   if (!items || items.length === 0) {
     return (
@@ -18,7 +19,7 @@ export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDe
         <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
         <h3 className="text-xl font-semibold text-gray-900 mb-2">No Products Yet</h3>
         <p className="text-gray-600 mb-6">Get started by adding your first product and generating AI descriptions.</p>
-        <Button icon={Package}>Add Your First Product</Button>
+        <Button icon={Package} onClick={onAddProduct}>Add Your First Product</Button>
       </Card>
     );
   }

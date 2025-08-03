@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\OTPController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use App\Models\User;
@@ -7,14 +8,13 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AiDescriptionLogController;
 use App\Http\Controllers\SallaWebhookController;
-use App\Http\Controllers\HandleProductCreatedController;
-
 
 
 
 // Auth Routes (Public)
 Route::post('/register', [UserController::class, 'register']); // Register new user
 Route::post('/login', [UserController::class, 'login']);       // Login user
+Route::post('/password-reset', [UserController::class, 'resetPassword']);
 
 // Protected Routes (Require Authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -41,16 +41,3 @@ Route::middleware('auth:sanctum')->group(function () {
         ->whereIn('language', ['العربية', 'English']);
 });
     Route::post('/salla/webhook', [SallaWebhookController::class, 'handle']);
-
-    Route::post('/product-created', [HandleProductCreatedController::class, 'handleProductCreated']);
-
-
-
-
-
-    
-
-
-    
-
-    
