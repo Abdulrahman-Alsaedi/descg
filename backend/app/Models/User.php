@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\Http;
 
 class User extends Authenticatable
 {
@@ -19,10 +20,13 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    'name',
+    'email',
+    'password',
+    'salla_code',
+    'salla_scope',
+    'salla_state',
+];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -51,4 +55,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Product::class);
     }
+
+    public function sallaToken()
+{
+    return $this->hasOne(SallaToken::class);
+}
 }
