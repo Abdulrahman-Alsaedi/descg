@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
+use App\Mail\Transports\ResendTransport;
+use Illuminate\Mail\MailManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,5 +28,11 @@ class AppServiceProvider extends ServiceProvider
 
         Route::middleware('web')
             ->group(base_path('routes/web.php'));
+
+         $this->app->make(MailManager::class)->extend('resend', function (array $config = []) {
+            return new ResendTransport(
+                $config['key'] ?? config('services.resend.key')
+            );
+        });
     }
 }
