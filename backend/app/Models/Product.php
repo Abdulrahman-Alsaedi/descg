@@ -20,6 +20,7 @@ class Product extends Model
         'language',
         'ai_provider',
         'final_description',
+        'image_url',
     ];
 
     protected $casts = [

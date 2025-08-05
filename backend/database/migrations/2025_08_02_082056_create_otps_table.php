@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('type')->default('registration'); // 'registration', 'login', etc.
             $table->timestamp('expires_at');
             $table->boolean('used')->default(false);
+            $table->json('data')->nullable(); // Store temporary user data
             $table->timestamps();
         });
     }

@@ -7,4 +7,13 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://api.descg.store',
+        changeOrigin: true,
+        secure: true,
+      }
+    }
+  }
 });

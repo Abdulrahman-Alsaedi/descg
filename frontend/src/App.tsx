@@ -4,12 +4,13 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { LoginForm } from './components/LoginForm';
 import { SignUpForm } from './components/SignUpForm';
+import { ForgotPassword } from './components/ForgotPassword';
 import { Dashboard } from './components/Dashboard';
 
 
 const AppContent: React.FC = () => {
   const { user, isLoading } = useAuth();
-  const [showSignUp, setShowSignUp] = React.useState(false);
+  const [currentView, setCurrentView] = React.useState<'login' | 'signup' | 'forgot-password'>('login');
 
   if (isLoading) {
     return (
@@ -20,8 +21,29 @@ const AppContent: React.FC = () => {
   }
 
   if (user) return <Dashboard />;
-  if (showSignUp) return <SignUpForm onSignUpSuccess={() => setShowSignUp(false)} />;
-  return <LoginForm onShowSignUp={() => setShowSignUp(true)} />;
+
+  switch (currentView) {
+    case 'signup':
+      return (
+        <SignUpForm 
+          key="signup-form"
+          onSignUpSuccess={() => {
+            // Don't redirect immediately - let the user see success and then redirect
+            setTimeout(() => setCurrentView('login'), 2000);
+          }} 
+          onShowLogin={() => setCurrentView('login')}
+        />
+      );
+    case 'forgot-password':
+      return <ForgotPassword onBack={() => setCurrentView('login')} />;
+    default:
+      return (
+        <LoginForm 
+          onShowSignUp={() => setCurrentView('signup')}
+          onShowForgotPassword={() => setCurrentView('forgot-password')}
+        />
+      );
+  }
 };
 
 function App() {

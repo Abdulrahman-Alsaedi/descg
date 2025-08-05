@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { PasswordInput } from './ui/PasswordInput';
 import { Card } from './ui/Card';
 
 
 interface LoginFormProps {
   onShowSignUp?: () => void;
+  onShowForgotPassword?: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp }) => {
+export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp, onShowForgotPassword }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,12 +68,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp }) => {
             required
           />
 
-          <Input
+          <PasswordInput
             label="Password"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
+            showValidation={false}
             required
           />
 
@@ -85,9 +87,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp }) => {
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          Demo credentials: Use any email and password to continue
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={onShowForgotPassword}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Forgot your password?
+          </button>
         </div>
+
         <div className="mt-2 text-center text-sm">
           Don't have an account?{' '}
           <button

@@ -1,29 +1,264 @@
-import { AIGenerationRequest } from '../types';
+import { AIGenerationRequest, AIDescriptionLog } from '../types';
 
-export const generateDescription = async (request: AIGenerationRequest): Promise<string> => {
-  // Simulate AI API call
-  await new Promise(resolve => setTimeout(resolve, 2000));
+// Track generation attempts to ensure uniqueness
+const generationTracker = new Map<string, number>();
+
+export const generateDescription = async (request: AIGenerationRequest, existingProductId?: string): Promise<{description: string, productId: string}> => {
+  const { productName, category, features, keywords, tone = 'professional', length = 'medium', language = 'en', aiProvider = 'gemini' } = request;
   
-  const { productName, category, features, keywords, tone = 'professional', length = 'medium' } = request;
+  // Send frontend language codes directly - backend will convert them
+  const backendLanguage = language;
   
-  // Mock AI-generated descriptions based on input
-  const templates = {
-    professional: {
-      short: `Introducing the ${productName} - a premium ${category} designed for excellence. ${features.slice(0, 2).join(' and ')} make this the perfect choice for discerning customers.`,
-      medium: `Discover the ${productName}, a revolutionary ${category} that combines innovation with style. Featuring ${features.join(', ')}, this product delivers exceptional performance and value. Perfect for ${keywords.join(', ')} enthusiasts who demand the best.`,
-      long: `Experience the future with the ${productName}, an extraordinary ${category} that redefines industry standards. Our engineering team has meticulously crafted this product with ${features.join(', ')}, ensuring unparalleled quality and performance. Whether you're interested in ${keywords.join(', ')}, this versatile solution adapts to your needs. The ${productName} represents our commitment to innovation, combining cutting-edge technology with user-friendly design to deliver an exceptional experience that exceeds expectations.`
-    },
-    casual: {
-      short: `Meet the ${productName}! This awesome ${category} is packed with ${features.slice(0, 2).join(' and ')} that'll make your life easier.`,
-      medium: `Hey there! Looking for an amazing ${category}? The ${productName} is exactly what you need! With ${features.join(', ')}, it's perfect for anyone into ${keywords.join(', ')}. Trust us, you're going to love it!`,
-      long: `Okay, let's talk about the ${productName} - this ${category} is seriously incredible! We've loaded it with ${features.join(', ')} because we know you want something that actually works. Whether you're all about ${keywords.join(', ')} or just want something reliable, this is it. The ${productName} isn't just another product - it's going to become your new favorite thing. We've thought of everything to make sure you get exactly what you're looking for.`
-    },
-    persuasive: {
-      short: `Don't miss out on the ${productName} - the ultimate ${category} with ${features.slice(0, 2).join(' and ')} that customers can't stop raving about!`,
-      medium: `Why settle for ordinary when you can have extraordinary? The ${productName} transforms your ${category} experience with ${features.join(', ')}. Join thousands of satisfied customers who've discovered the ${keywords.join(', ')} solution they've been searching for. Order yours today!`,
-      long: `Stop wasting time with inferior products! The ${productName} is the game-changing ${category} that's taking the market by storm. With ${features.join(', ')}, this isn't just another purchase - it's an investment in quality that pays dividends every day. Thousands of customers have already discovered why the ${productName} is the #1 choice for ${keywords.join(', ')} enthusiasts. Don't let this opportunity slip away - demand is high and availability is limited. Experience the difference that true quality makes and join the revolution of satisfied customers who made the smart choice.`
+  // Create a unique key for this product configuration
+  const productKey = `${productName}-${category}-${features.join(',')}-${keywords.join(',')}`;
+  const attemptNumber = (generationTracker.get(productKey) || 0) + 1;
+  generationTracker.set(productKey, attemptNumber);
+  
+  let productId = existingProductId;
+  
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
     }
-  };
-  
-  return templates[tone][length];
+
+    // Only create a new product if we don't have an existing one
+    if (!productId) {
+      const productResponse = await fetch('http://127.0.0.1:8000/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: productName,
+          category: category,
+          features: features,
+          keywords: keywords,
+          tone: tone,
+          length: length,
+          language: backendLanguage,
+          ai_provider: aiProvider,
+        }),
+      });
+
+      if (!productResponse.ok) {
+        const errorData = await productResponse.json().catch(() => ({ message: 'Failed to create product' }));
+        throw new Error(errorData.message || 'Failed to create product');
+      }
+
+      const productData = await productResponse.json();
+      productId = productData.product.id;
+    }
+
+    // Generate AI description using the product ID
+    const aiResponse = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/generate/${productId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Generation-Attempt': attemptNumber.toString(),
+      },
+      body: JSON.stringify({
+        tone: tone,
+        length: length,
+        language: backendLanguage,
+        ai_provider: aiProvider,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      const errorData = await aiResponse.json().catch(() => ({ error: 'Unknown server error' }));
+      console.error('AI Generation Failed:', {
+        status: aiResponse.status,
+        statusText: aiResponse.statusText,
+        error: errorData,
+        url: aiResponse.url
+      });
+      throw new Error(errorData.error || `Server error: ${aiResponse.status} ${aiResponse.statusText}`);
+    }
+
+    const aiData = await aiResponse.json();
+    
+    // If we got a successful response, get the AI logs for this product to retrieve the generated description
+    if (aiData.success) {
+      const logsResponse = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/${productId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (logsResponse.ok) {
+        const logsData = await logsResponse.json();
+        // Get the most recent log entry
+        const latestLog = Array.isArray(logsData) && logsData.length > 0 ? logsData[logsData.length - 1] : null;
+        
+        if (latestLog && latestLog.generated_text) {
+          return {
+            description: latestLog.generated_text,
+            productId: productId!
+          };
+        }
+      }
+    }
+    
+    // Fallback to direct response if logs retrieval fails
+    return {
+      description: aiData.description || 'Generated description not found',
+      productId: productId!
+    };
+    
+  } catch (error) {
+    console.error('AI Generation Error:', error);
+    
+    // Use the actual productId if we have it (from successful product creation), 
+    // otherwise use existingProductId, otherwise create a temp fallback
+    const fallbackProductId = productId || existingProductId || `temp_${Date.now()}`;
+    
+    console.log('Using fallback description with productId:', fallbackProductId, 'Original productId:', productId, 'ExistingProductId:', existingProductId);
+    
+    // Enhanced fallback with uniqueness
+    const fallbackVariations = [
+      `Discover the innovative ${productName} - a cutting-edge ${category} that revolutionizes your experience with ${features.slice(0, 2).join(' and ')}. Ideal for those seeking ${keywords.slice(0, 2).join(' and ')} excellence.`,
+      `Experience excellence with the ${productName}, featuring ${features.slice(0, 2).join(' and ')}. This premium ${category} delivers unmatched quality for ${keywords.slice(0, 2).join(' and ')} enthusiasts.`,
+      `Transform your world with the ${productName} - where ${features.slice(0, 2).join(' meets ')} in perfect harmony. The ultimate ${category} solution for ${keywords.slice(0, 2).join(' and ')} perfection.`,
+      `Unleash the power of the ${productName}, designed with ${features.slice(0, 2).join(' and ')} to redefine your ${category} experience. Perfect for ${keywords.slice(0, 2).join(' and ')} applications.`
+    ];
+    
+    const fallbackIndex = (attemptNumber - 1) % fallbackVariations.length;
+    return {
+      description: fallbackVariations[fallbackIndex],
+      productId: fallbackProductId
+    };
+  }
+};
+
+// Function to get all AI logs
+export const getAILogs = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch('http://127.0.0.1:8000/api/ai-description-logs', {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch AI logs');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching AI logs:', error);
+    throw error;
+  }
+};
+
+// Function to get AI logs for a specific product
+export const getProductAILogs = async (productId: string | number) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/${productId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch product AI logs');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching product AI logs:', error);
+    throw error;
+  }
+};
+
+// Function to get AI history for a specific product
+export const getAIHistoryForProduct = async (productId: string): Promise<AIDescriptionLog[]> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/fetchByProduct?product_id=${productId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to fetch AI history' }));
+      console.error('Failed to fetch AI history:', errorData);
+      throw new Error(errorData.message || 'Failed to fetch AI history');
+    }
+
+    const data = await response.json();
+    const logs = data.logs || [];
+    return logs;
+  } catch (error) {
+    console.error('Error fetching AI history:', error);
+    throw error;
+  }
+};
+
+// Function to reset generation tracking for a specific product
+export const resetGenerationTracking = (productName: string, category: string, features: string[], keywords: string[]) => {
+  const productKey = `${productName}-${category}-${features.join(',')}-${keywords.join(',')}`;
+  generationTracker.delete(productKey);
+};
+
+// Function to clear all generation tracking
+export const clearAllGenerationTracking = () => {
+  generationTracker.clear();
+};
+
+// Function to delete a specific product when user cancels
+export const deleteProduct = async (productId: string): Promise<void> => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}`, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Failed to delete product' }));
+      console.warn('Product deletion failed:', errorData.message);
+      // Don't throw error - deletion is for cleanup
+    } else {
+      const data = await response.json();
+      console.log('Product deleted:', data.message);
+    }
+  } catch (error) {
+    console.warn('Error during product deletion:', error);
+    // Don't throw error - deletion is for cleanup
+  }
 };

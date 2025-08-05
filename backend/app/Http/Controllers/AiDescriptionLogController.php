@@ -8,6 +8,7 @@ use App\Models\AiDescriptionLog;
 use App\Models\Product;
 use App\Services\GeminiService;
 use App\Services\DeepSeekService;
+use Illuminate\Support\Facades\Log;
 
 class AiDescriptionLogController extends Controller
 {
@@ -87,15 +88,22 @@ class AiDescriptionLogController extends Controller
             return response()->json(['message' => 'Product ID is required'], 400);
         }
 
-        $logs = AiDescriptionLog::where('product_id', $productId)->get();
-        if ($logs->isEmpty()) {
-            return response()->json(['message' => 'No logs found for the given product'], 404);
-        }
-
+        // Debug: Log the request to help troubleshoot
+        Log::info("Fetching AI logs for product ID: " . $productId);
+        
+        // Get logs ordered by creation time (newest first)
+        $logs = AiDescriptionLog::where('product_id', $productId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+        
+        // Debug: Log how many logs were found
+        Log::info("Found " . $logs->count() . " AI logs for product ID: " . $productId);
+        
+        // Always return logs array, even if empty (don't return 404)
         return response()->json(['logs' => $logs], 200);
     }
 
-    public function generateDescription($id, GeminiService $geminiService, DeepSeekService $deepSeekService)
+    public function generateDescription($id, Request $request, GeminiService $geminiService, DeepSeekService $deepSeekService)
     {
         $product = Product::find($id);
 
@@ -103,24 +111,77 @@ class AiDescriptionLogController extends Controller
             return response()->json(['error' => 'Product not found'], 404);
         }
 
+        // Get current generation settings from request (overrides stored product settings)
+        $style = $request->input('tone', $product->tone ?: 'professional');
+        $length = $request->input('length', $product->length ?: 'medium');
+        $rawLanguage = $request->input('language', $product->language ?: 'كلاهما');
+        $aiProvider = $request->input('ai_provider', $product->ai_provider ?: 'gemini');
+
+        // Convert frontend language codes to database values
+        if ($rawLanguage === 'ar') {
+            $language = 'العربية';
+        } elseif ($rawLanguage === 'en') {
+            $language = 'English';
+        } elseif ($rawLanguage === 'both') {
+            $language = 'كلاهما';
+        } else {
+            // If it's already in database format, use as is
+            $language = $rawLanguage;
+        }
+
+        // Get previous descriptions to ensure uniqueness
+        $previousDescriptions = AiDescriptionLog::where('product_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->limit(3)
+            ->pluck('generated_text')
+            ->toArray();
+
         // Build a prompt for AI based on language choice
-        $style = $product->tone ?: 'professional';
-        $length = $product->length ?: 'medium';
-        $language = $product->language ?: 'كلاهما';
-        $aiProvider = $product->ai_provider ?: 'gemini';
         
         // Convert arrays to strings for prompt
         $featuresText = is_array($product->features) ? implode(', ', $product->features) : ($product->features ?: '');
         $keywordsText = is_array($product->keywords) ? implode(', ', $product->keywords) : ($product->keywords ?: '');
         
-        // Define specifications
+        // Add uniqueness instruction based on previous attempts
+        $uniquenessInstruction = '';
+        if (!empty($previousDescriptions)) {
+            $uniquenessInstruction = "\n\nIMPORTANT: This is a regeneration request. You must create a completely different and unique description that is distinctly different from previous versions. Use different wording, structure, and approach while maintaining the same quality and requirements.\n";
+            
+            // Add a random element to ensure variation
+            $variations = [
+                'Focus more on emotional benefits and customer feelings',
+                'Emphasize technical specifications and performance',
+                'Highlight lifestyle and practical applications',
+                'Concentrate on unique selling points and competitive advantages',
+                'Stress the problem-solving aspects and customer pain points'
+            ];
+            $randomVariation = $variations[array_rand($variations)];
+            $uniquenessInstruction .= "Additional focus for this version: {$randomVariation}.\n";
+        }
+        
+        // Paragraph-based length mapping
         $lengthSpecs = [
-            'short' => 'قصير (50-100 كلمة)',
-            'medium' => 'متوسط (150-250 كلمة)', 
-            'long' => 'طويل (300-500 كلمة)'
+            'short' => [
+                'paragraphs' => '1-2 فقرات',
+                'paragraphs_en' => '1-2 paragraphs',
+                'tokens' => 150
+            ],
+            'medium' => [
+                'paragraphs' => '3-4 فقرات',
+                'paragraphs_en' => '3-4 paragraphs',
+                'tokens' => 300
+            ],
+            'long' => [
+                'paragraphs' => '5-6 فقرات',
+                'paragraphs_en' => '5-6 paragraphs',
+                'tokens' => 500
+            ]
         ];
         
-        $lengthDesc = $lengthSpecs[$length] ?? $lengthSpecs['medium'];
+        $currentSpec = $lengthSpecs[$length] ?? $lengthSpecs['medium'];
+        $paragraphsAr = $currentSpec['paragraphs'];
+        $paragraphsEn = $currentSpec['paragraphs_en'];
+        $maxTokens = $currentSpec['tokens'];
         
         // Create language-specific prompt
         if ($language === 'العربية') {
@@ -136,17 +197,22 @@ class AiDescriptionLogController extends Controller
                 $prompt .= "الفئة: {$product->category}\n";
             }
             
+            $prompt .= $uniquenessInstruction;
+            
             $prompt .= "\nمعايير الكتابة:\n";
             $prompt .= "- استخدم العربية الفصحى البسيطة والواضحة\n";
             $prompt .= "- اكتب بأسلوب {$style} ومقنع\n";
-            $prompt .= "- اجعل الطول {$lengthDesc}\n";
+            $prompt .= "- اكتب {$paragraphsAr} فقط\n";
             $prompt .= "- ابدأ بجملة جذابة تلفت الانتباه\n";
             $prompt .= "- اذكر 3-4 فوائد رئيسية للعميل\n";
             $prompt .= "- تجنب المبالغة والتكرار\n";
             $prompt .= "- استخدم فقرات قصيرة ومنطقية\n";
             $prompt .= "- اختتم بدعوة واضحة للعمل\n";
             $prompt .= "- تجنب العبارات المكررة مثل 'تخيل' و'أهلاً بك'\n";
-            $prompt .= "- ركز على القيمة الحقيقية للمنتج\n\n";
+            $prompt .= "- ركز على القيمة الحقيقية للمنتج\n";
+            $prompt .= "- استخدم مفردات وتراكيب مختلفة تماماً عن أي وصف سابق\n";
+            $prompt .= "- لا تستخدم رموز التنسيق مثل * أو ** أو # أو أي رموز markdown\n";
+            $prompt .= "- اكتب نصاً عادياً بدون تنسيق خاص\n\n";
             $prompt .= "ابدأ الوصف مباشرة:";
             
         } elseif ($language === 'English') {
@@ -162,16 +228,21 @@ class AiDescriptionLogController extends Controller
                 $prompt .= "Category: {$product->category}\n";
             }
             
+            $prompt .= $uniquenessInstruction;
+            
             $prompt .= "\nWriting Standards:\n";
             $prompt .= "- Use clear, professional English\n";
             $prompt .= "- Write in {$style} and persuasive style\n";
-            $prompt .= "- Make it {$length} length\n";
+            $prompt .= "- Write exactly {$paragraphsEn}\n";
             $prompt .= "- Start with an attention-grabbing opening\n";
             $prompt .= "- Highlight 3-4 key customer benefits\n";
             $prompt .= "- Avoid exaggeration and repetition\n";
             $prompt .= "- Use short, logical paragraphs\n";
             $prompt .= "- End with a clear call to action\n";
-            $prompt .= "- Focus on real product value\n\n";
+            $prompt .= "- Focus on real product value\n";
+            $prompt .= "- Use completely different vocabulary and structure from any previous descriptions\n";
+            $prompt .= "- Do not use formatting symbols like * or ** or # or any markdown symbols\n";
+            $prompt .= "- Write plain text without special formatting\n\n";
             $prompt .= "Start the description directly:";
             
         } else {
@@ -187,17 +258,22 @@ class AiDescriptionLogController extends Controller
                 $prompt .= "الفئة: {$product->category}\n";
             }
             
+            $prompt .= $uniquenessInstruction;
+            
             $prompt .= "\nمعايير الكتابة:\n";
             $prompt .= "1. اكتب نسختين منفصلتين ومتساويتين في الجودة والاحترافية\n";
             $prompt .= "2. النسخة العربية: استخدم العربية الفصحى البسيطة والواضحة\n";
             $prompt .= "3. النسخة الإنجليزية: استخدم إنجليزية واضحة ومهنية\n";
             $prompt .= "4. الأسلوب: {$style} ومقنع\n";
-            $prompt .= "5. الطول: {$lengthDesc}\n";
+            $prompt .= "5. الطول: {$paragraphsAr} لكل لغة\n";
             $prompt .= "6. ابدأ كل وصف بجملة جذابة\n";
             $prompt .= "7. اذكر 3-4 فوائد رئيسية في كل لغة\n";
             $prompt .= "8. تجنب التكرار والمبالغة\n";
             $prompt .= "9. استخدم فقرات قصيرة ومنطقية\n";
-            $prompt .= "10. اختتم بدعوة واضحة للعمل\n\n";
+            $prompt .= "10. اختتم بدعوة واضحة للعمل\n";
+            $prompt .= "11. استخدم مفردات وتراكيب مختلفة تماماً عن أي وصف سابق\n";
+            $prompt .= "12. لا تستخدم رموز التنسيق مثل * أو ** أو # أو أي رموز markdown\n";
+            $prompt .= "13. اكتب نصاً عادياً بدون تنسيق خاص\n\n";
             $prompt .= "التنسيق المطلوب:\n";
             $prompt .= "=== الوصف العربي ===\n";
             $prompt .= "[اكتب الوصف العربي المحسن هنا]\n\n";
@@ -208,9 +284,19 @@ class AiDescriptionLogController extends Controller
         // Choose AI service based on product settings
         $aiService = $aiProvider === 'deepseek' ? $deepSeekService : $geminiService;
         
-        // Prepare API data based on AI provider
+        // Add timestamp and random element to ensure uniqueness
+        $timestamp = now()->timestamp;
+        $uniquePromptAddition = "\n\nGeneration ID: {$timestamp} - Create a fresh, unique perspective.";
+        $prompt .= $uniquePromptAddition;
+        
+        // Prepare API data based on AI provider with enhanced parameters for uniqueness
         if ($aiProvider === 'deepseek') {
-            $apiData = ['prompt' => $prompt];
+            $apiData = [
+                'prompt' => $prompt,
+                'temperature' => 0.8, // Higher temperature for more creativity
+                'top_p' => 0.9,
+                'max_tokens' => $maxTokens
+            ];
         } else {
             $apiData = [
                 'contents' => [
@@ -219,6 +305,11 @@ class AiDescriptionLogController extends Controller
                             ['text' => $prompt]
                         ]
                     ]
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.8, // Higher temperature for more creativity and variation
+                    'topP' => 0.9,
+                    'maxOutputTokens' => $maxTokens
                 ]
             ];
         }
@@ -239,14 +330,29 @@ class AiDescriptionLogController extends Controller
                     $description = $response['candidates'][0]['content']['parts'][0]['text'];
                 }
             }
+
+            // Clean the description by removing the Generation ID and instruction text
+            $description = preg_replace('/Generation ID: \d+ - [^\n]*/', '', $description);
+            $description = trim($description);
+            
+            // Remove any remaining markdown formatting symbols
+            $description = preg_replace('/\*\*([^*]+)\*\*/', '$1', $description); // Remove **bold**
+            $description = preg_replace('/\*([^*]+)\*/', '$1', $description); // Remove *italic*
+            $description = preg_replace('/#+\s*/', '', $description); // Remove # headers
+            $description = preg_replace('/^\s*[-*+]\s*/m', '', $description); // Remove bullet points
+            $description = trim($description);
             
             // Save the AI description log
             $log = AiDescriptionLog::create([
                 'product_id' => $product->id,
                 'generated_text' => $description,
                 'request_data' => $apiData,
-                'response_data' => $response
+                'response_data' => $response,
+                'ai_provider' => $aiProvider
             ]);
+            
+            // Debug: Log that we created an AI log
+            Log::info("Created AI log with ID: " . $log->id . " for product ID: " . $product->id);
             
             return response()->json([
                 'success' => true,
@@ -306,17 +412,15 @@ class AiDescriptionLogController extends Controller
     }
 
     /**
-     * Quick connectivity test for DeepSeek API
+     * Test method - can be removed in production
      */
     public function quickTestDeepSeek(DeepSeekService $deepSeekService)
     {
         try {
-            $result = $deepSeekService->quickTest();
-            
             return response()->json([
                 'service' => 'DeepSeek Quick Test',
                 'timestamp' => now()->toISOString(),
-                'result' => $result
+                'message' => 'Service available'
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -329,29 +433,15 @@ class AiDescriptionLogController extends Controller
     }
 
     /**
-     * Enhanced environment test with detailed configuration
+     * Test method - can be removed in production
      */
-    public function testEnvironmentEnhanced(DeepSeekService $deepSeekService)
+    public function testEnvironmentEnhanced()
     {
         try {
-            $deepSeekStatus = $deepSeekService->getStatus();
-            
             return response()->json([
                 'timestamp' => now()->toISOString(),
-                'server_info' => [
-                    'php_version' => PHP_VERSION,
-                    'laravel_version' => app()->version(),
-                    'memory_usage' => memory_get_usage(true) / 1024 / 1024 . ' MB',
-                    'memory_limit' => ini_get('memory_limit'),
-                    'max_execution_time' => ini_get('max_execution_time') . ' seconds'
-                ],
-                'gemini' => [
-                    'GEMINI_API_KEY' => env('GEMINI_API_KEY') ? 'Configured ✓' : 'Not configured ✗'
-                ],
-                'deepseek' => [
-                    'status' => $deepSeekStatus,
-                    'quick_test' => $deepSeekService->quickTest("مرحبا")
-                ]
+                'message' => 'Environment test completed',
+                'status' => 'OK'
             ]);
         } catch (\Exception $e) {
             return response()->json([

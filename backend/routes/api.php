@@ -8,13 +8,20 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\AiDescriptionLogController;
 use App\Http\Controllers\SallaWebhookController;
+use App\Http\Controllers\ImageUploadController;
 
 
 
 // Auth Routes (Public)
-Route::post('/register', [UserController::class, 'register']); // Register new user
+Route::post('/register', [UserController::class, 'register']); // Register new user (sends OTP)
+Route::post('/verify-otp', [UserController::class, 'verifyRegistrationOTP']); // Verify OTP and create user
 Route::post('/login', [UserController::class, 'login']);       // Login user
 Route::post('/password-reset', [UserController::class, 'resetPassword']);
+
+// OTP Routes (Public)
+Route::post('/otp/send', [OTPController::class, 'sendOTP']);
+Route::post('/otp/verify', [OTPController::class, 'verifyOTP']);
+Route::post('/otp/resend', [OTPController::class, 'resendOTP']);
 
 // Protected Routes (Require Authentication)
 Route::middleware('auth:sanctum')->group(function () {
@@ -30,13 +37,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/products/{id}', [ProductController::class, 'update']);   // Update user's product
     Route::delete('/products/{id}', [ProductController::class, 'destroy']);// Delete user's product
 
+    // Image Upload Routes
+    Route::post('/upload/image', [ImageUploadController::class, 'upload']);   // Upload product image
+    Route::delete('/upload/image', [ImageUploadController::class, 'delete']); // Delete product image
+
     // AiDescriptionLog CRUD
     Route::get('/ai-description-logs', [AiDescriptionLogController::class, 'index']);
+    Route::get('/ai-description-logs/fetchByProduct', [AiDescriptionLogController::class, 'fetchByProduct']);
     Route::get('/ai-description-logs/{id}', [AiDescriptionLogController::class, 'show']);
     Route::post('/ai-description-logs', [AiDescriptionLogController::class, 'store']);
     Route::put('/ai-description-logs/{id}', [AiDescriptionLogController::class, 'update']);
     Route::delete('/ai-description-logs/{id}', [AiDescriptionLogController::class, 'destroy']);
-    //Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
+    Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
     Route::get('/ai-description/extract/{logId}/{language}', [AiDescriptionLogController::class, 'getDescriptionByLanguage'])
         ->whereIn('language', ['العربية', 'English']);
 });

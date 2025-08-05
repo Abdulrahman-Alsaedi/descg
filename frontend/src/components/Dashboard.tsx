@@ -29,7 +29,8 @@ export const Dashboard: React.FC = () => {
 
   const fetchProducts = () => {
     setLoading(true);
-    fetch('https://api.descg.store/api/products', {
+    // fetch('https://api.descg.store/api/products', {
+    fetch('http://127.0.0.1:8000/api/products', {
       headers: getAuthHeaders()
     })
       .then(res => {
@@ -50,16 +51,23 @@ export const Dashboard: React.FC = () => {
     try {
       let response;
       // Check if it's an existing product (has numeric ID, not temp ID)
+      // Also handle case where product was created during AI generation
       const isExistingProduct = product.id && !product.id.toString().startsWith('temp_');
       
+      console.log('Saving product:', product);
+      console.log('Is existing product:', isExistingProduct);
+      console.log('Product ID:', product.id);
+      
       if (isExistingProduct) {
-        response = await fetch(`https://api.descg.store/api/products/${product.id}`, {
+        // response = await fetch(`https://api.descg.store/api/products/${product.id}`, {
+        response = await fetch(`http://127.0.0.1:8000/api/products/${product.id}`, {
           method: 'PUT',
           headers: getAuthHeaders(),
           body: JSON.stringify(product)
         });
       } else {
-        response = await fetch('https://api.descg.store/api/products', {
+        // response = await fetch('https://api.descg.store/api/products', {
+        response = await fetch('http://127.0.0.1:8000/api/products', {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify(product)
@@ -94,7 +102,8 @@ export const Dashboard: React.FC = () => {
   const handleProductDelete = async (productId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`https://api.descg.store/api/products/${productId}`, {
+      // const response = await fetch(`https://api.descg.store/api/products/${productId}`, {
+      const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });

@@ -14,22 +14,24 @@ class SendOtpMail extends Mailable
     use Queueable, SerializesModels;
 
     public $otp;
-    public $ip;
-    public $validUntil;
+    public $type;
 
-
-    public function __construct($otp)
+    public function __construct($otp, $type = 'registration')
     {
         $this->otp = $otp;
-        $this->ip = request()->ip();
-        $this->validUntil = now()->addMinutes(5)->format('h:i A');
+        $this->type = $type;
     }
 
     public function build()
     {
-        return $this->subject('Your OTP Code')
-                    ->view('emails.otp')
-                    ->text('emails.otp_text');
+        $subject = match($this->type) {
+            'password_reset' => 'Password Reset Code',
+            'login' => 'Login Verification Code',
+            default => 'Account Verification Code'
+        };
+
+        return $this->subject($subject)
+                    ->view('emails.otp');
     }
 
 }

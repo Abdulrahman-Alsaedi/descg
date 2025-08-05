@@ -3,6 +3,7 @@ import { Edit, Trash2, Package, Sparkles, DollarSign } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Product } from '../types';
+import { getProductImageUrl, getImageObjectFit, getDefaultProductImage } from '../utils/imageUtils';
 
 interface ProductListProps {
   products: Product[];
@@ -29,15 +30,31 @@ export const ProductList: React.FC<ProductListProps> = ({ products, onEdit, onDe
       <h2 className="text-2xl font-bold text-gray-900">Your Products</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {items.map((product) => product && (
-          <Card key={product.id} className="relative">
-            {product.aiGenerated && (
-              <div className="absolute top-4 right-4">
-                <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  AI Generated
+          <Card key={product.id} className="relative overflow-hidden">
+            {/* Product Image */}
+            <div className="relative h-48 mb-4 bg-gray-100 rounded-t-lg overflow-hidden">
+              <img
+                src={getProductImageUrl(product)}
+                alt={product.name}
+                className="w-full h-full"
+                style={{ 
+                  objectFit: getImageObjectFit(product),
+                  objectPosition: 'center'
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = getDefaultProductImage(product.name);
+                }}
+              />
+              {product.aiGenerated && (
+                <div className="absolute top-3 right-3">
+                  <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 backdrop-blur-sm">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    AI Generated
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
             
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">

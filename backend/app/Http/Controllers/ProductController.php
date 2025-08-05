@@ -9,8 +9,9 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        // Get products for the authenticated user only
-        $products = Product::where('user_id', $request->user()->id)->get();
+        // Get products for the authenticated user
+        $products = Product::where('user_id', $request->user()->id)
+                          ->get();
         
         // Map final_description to description for frontend compatibility
         $products = $products->map(function ($product) {
@@ -45,14 +46,23 @@ class ProductController extends Controller
             'keywords' => 'nullable|array',
             'tone' => 'nullable|in:professional,friendly,casual,luxury,playful,emotional',
             'length' => 'nullable|in:short,medium,long',
-            'language' => 'nullable|in:العربية,English,كلاهما',
+            'language' => 'nullable|in:العربية,English,كلاهما,ar,en', // Accept both formats
             'ai_provider' => 'nullable|in:gemini,deepseek',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
+            'image_url' => 'nullable|string|max:2048', // Allow URLs or base64 images
         ]);
 
         // Check if user is authenticated
         if (!$request->user()) {
             return response()->json(['error' => 'User not authenticated'], 401);
+        }
+
+        // Convert frontend language codes to database values
+        $language = $request->input('language', 'كلاهما');
+        if ($language === 'ar') {
+            $language = 'العربية';
+        } elseif ($language === 'en') {
+            $language = 'English';
         }
 
         // Create product for the authenticated user
@@ -66,9 +76,10 @@ class ProductController extends Controller
             'keywords' => $request->input('keywords', []),
             'tone' => $request->input('tone'),
             'length' => $request->input('length'),
-            'language' => $request->input('language', 'اللغتين معاً'),
+            'language' => $language,
             'ai_provider' => $request->input('ai_provider', 'gemini'),
             'final_description' => $request->input('description'),
+            'image_url' => $request->input('image_url'),
         ]);
 
         // Add description field for frontend compatibility
@@ -100,7 +111,8 @@ class ProductController extends Controller
             'length' => 'nullable|in:short,medium,long',
             'language' => 'nullable|in:العربية,English,كلاهما',
             'ai_provider' => 'nullable|in:gemini,deepseek',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
+            'image_url' => 'nullable|string|max:2048', // Allow URLs or base64 images
         ]);
         
         $product->name = $request->input('name');
@@ -110,9 +122,19 @@ class ProductController extends Controller
         $product->keywords = $request->input('keywords', []);
         $product->tone = $request->input('tone');
         $product->length = $request->input('length');
-        $product->language = $request->input('language');
-        $product->ai_provider = $request->input('ai_provider');
+        
+        // Convert frontend language codes to database values
+        $language = $request->input('language', 'كلاهما');
+        if ($language === 'ar') {
+            $language = 'العربية';
+        } elseif ($language === 'en') {
+            $language = 'English';
+        }
+        $product->language = $language;
+        
+        $product->ai_provider = $request->input('ai_provider', 'gemini');
         $product->final_description = $request->input('description');
+        $product->image_url = $request->input('image_url');
         $product->save();
         
         // Add description field for frontend compatibility
