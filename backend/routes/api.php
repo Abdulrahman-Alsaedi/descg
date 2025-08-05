@@ -14,14 +14,9 @@ use App\Http\Controllers\ImageUploadController;
 
 // Auth Routes (Public)
 Route::post('/register', [UserController::class, 'register']); // Register new user (sends OTP)
-Route::post('/verify-otp', [UserController::class, 'verifyRegistrationOTP']); // Verify OTP and create user
 Route::post('/login', [UserController::class, 'login']);       // Login user
 Route::post('/password-reset', [UserController::class, 'resetPassword']);
 
-// OTP Routes (Public)
-Route::post('/otp/send', [OTPController::class, 'sendOTP']);
-Route::post('/otp/verify', [OTPController::class, 'verifyOTP']);
-Route::post('/otp/resend', [OTPController::class, 'resendOTP']);
 
 // Protected Routes (Require Authentication)
 Route::middleware('auth:sanctum')->group(function () {

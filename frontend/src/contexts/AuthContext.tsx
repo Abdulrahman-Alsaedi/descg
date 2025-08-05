@@ -9,7 +9,8 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ otpRequired?: boolean }>;
+  verifyLoginOTP: (email: string, password: string, otp: string) => Promise<void>;
   register: (
     name: string,
     email: string,
@@ -58,7 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      // const res = await fetch('https://api.descg.store/api/user', {
       const res = await fetch('http://127.0.0.1:8000/api/user', {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -85,12 +85,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<{ otpRequired?: boolean }> => {
     setIsLoading(true);
     try {
       const payload = { email, password };
 
-      // const response = await fetch('https://api.descg.store/api/login', {
       const response = await fetch('http://127.0.0.1:8000/api/login', {
         method: 'POST',
         headers: {
@@ -100,11 +99,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify(payload),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Login failed');
+        throw new Error(data.message || 'Login failed');
       }
 
+      if (data.otp_required) {
+        return { otpRequired: true };
+      }
+
+      localStorage.setItem('token', data.token);
+      if (data.user) {
+        setUser(data.user);
+      } else {
+        await fetchUser();
+      }
+
+      return {};
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyLoginOTP = async (email: string, password: string, otp: string) => {
+    setIsLoading(true);
+    try {
+      const payload = {
+        email,
+        password,
+        otp,
+        type: 'login',
+      };
+
+      const response = await fetch('http://127.0.0.1:8000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'OTP verification failed');
+      }
 
       localStorage.setItem('token', data.token);
       if (data.user) {
@@ -131,7 +175,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   ): Promise<{ otpRequired?: boolean }> => {
     try {
-      const payload: any = { name, email, password };
+      const payload: any = {
+        name,
+        email,
+        password,
+        type: 'registration',
+      };
 
       if (sallaData) {
         if (sallaData.salla_code) payload.salla_code = sallaData.salla_code;
@@ -139,13 +188,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (sallaData.salla_state) payload.salla_state = sallaData.salla_state;
       }
 
-      // const response = await fetch('https://api.descg.store/api/register', {
       const response = await fetch('http://127.0.0.1:8000/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin,
+          Accept: 'application/json',
         },
         mode: 'cors',
         body: JSON.stringify(payload),
@@ -157,26 +204,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(data.message || 'Registration failed');
       }
 
-      // Check if OTP is required
       if (data.otp_required) {
-        const result: any = { otpRequired: true };
-        // For development, show OTP in console only
-        if (data.dev_otp) {
-          result.devOtp = data.dev_otp;
-        }
-        return result;
+        return { otpRequired: true };
       }
 
-      // If no OTP required, complete registration
-
-      // If no OTP required, complete registration
       localStorage.setItem('token', data.token);
       if (data.user) {
         setUser(data.user);
       } else {
         await fetchUser();
       }
-      
+
       return {};
     } catch (error) {
       throw error;
@@ -196,12 +234,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ) => {
     setIsLoading(true);
     try {
-      const payload: any = { 
-        name, 
-        email, 
-        password, 
+      const payload: any = {
+        name,
+        email,
+        password,
         otp,
-        type: 'registration'
+        type: 'registration',
       };
 
       if (sallaData) {
@@ -210,14 +248,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (sallaData.salla_state) payload.salla_state = sallaData.salla_state;
       }
 
-      // const response = await fetch('https://api.descg.store/api/register', {
-      const response = await fetch('http://127.0.0.1:8000/api/verify-otp', {
+      const response = await fetch('http://127.0.0.1:8000/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ email, otp }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -248,9 +285,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email,
-          type: 'registration'
+          type: 'registration',
         }),
       });
 
@@ -270,7 +307,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, verifyOTP, resendOTP, logout, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        verifyLoginOTP,
+        register,
+        verifyOTP,
+        resendOTP,
+        logout,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
