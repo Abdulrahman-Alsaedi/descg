@@ -134,15 +134,7 @@ class UserController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-                'regex:/[a-z]/',
-                'regex:/[A-Z]/',
-                'regex:/[0-9]/',
-                'regex:/[^a-zA-Z0-9]/'
-            ],
+            'password' => 'required|string',
             'otp' => 'nullable|string',
             'type' => 'nullable|string',
         ]);
@@ -153,47 +145,28 @@ class UserController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
-        // OTP login flow
-        if (!$request->otp) {
-            $otpCode = rand(100000, 999999);
-
-            Otp::where('email', $request->email)
-                ->where('type', "login")
-                ->delete();
-
-            $otp = Otp::create([
-                'email' => $request->email,
-                'code' => $otpCode,
-                'type' => "login",
-                'expires_at' => Carbon::now()->addMinutes(5),
+        // If OTP is provided, verify it (for OTP login flow)
+        if ($request->otp) {
+            $request->validate([
+                'type' => 'required|in:login',
             ]);
 
-            Mail::to($user->email)->send(new SendOtpMail($otpCode));
+            $otp = Otp::where('email', $request->email)
+                ->where('type', "login")
+                ->where('code', $request->otp)
+                ->where('used', false)
+                ->where('expires_at', '>', now())
+                ->first();
 
-            return response()->json(['message' => 'OTP sent. Please verify.', 'otp_required' => true]);
+            if (!$otp) {
+                return response()->json(['message' => 'Invalid or expired OTP'], 400);
+            }
+
+            $otp->used = true;
+            $otp->save();
         }
 
-        // OTP included - verify it
-        $request->validate([
-            'email' => 'required|email',
-            'type' => 'required|in:login',
-            'otp' => 'required',
-        ]);
-
-        $otp = Otp::where('email', $request->email)
-            ->where('type', "login")
-            ->where('code', $request->otp)
-            ->where('used', false)
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if (!$otp) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 400);
-        }
-
-        $otp->used = true;
-        $otp->save();
-
+        // Direct login without OTP - create token and return user
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -210,17 +183,9 @@ class UserController extends Controller
     // Password reset with OTP
     public function resetPassword(Request $request)
     {
+        // Initial validation - only email is required for OTP request
         $request->validate([
             'email' => 'required|email',
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-                'regex:/[a-z]/',
-                'regex:/[A-Z]/',
-                'regex:/[0-9]/',
-                'regex:/[^a-zA-Z0-9]/'
-            ],
             'otp' => 'nullable|string',
             'type' => 'nullable|string',
         ]);
@@ -231,6 +196,7 @@ class UserController extends Controller
             return response()->json(['message' => 'No account found'], 404);
         }
 
+        // If no OTP provided, send OTP
         if (!$request->otp) {
             $otpCode = rand(100000, 999999);
 
@@ -250,10 +216,18 @@ class UserController extends Controller
             return response()->json(['message' => 'OTP sent', 'otp_required' => true]);
         }
 
+        // If OTP is provided, validate password and complete reset
         $request->validate([
-            'email' => 'required|email',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'regex:/[a-z]/',
+                'regex:/[A-Z]/',
+                'regex:/[0-9]/',
+                'regex:/[^a-zA-Z0-9]/'
+            ],
             'type' => 'required|in:password_reset',
-            'otp' => 'required',
         ]);
 
         $otp = Otp::where('email', $request->email)

@@ -38,10 +38,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onShowSignUp, onShowForgot
     }
 
     try {
-      await login(email, password);
+      const result = await login(email, password);
+      
+      // If OTP is required (this shouldn't happen with direct login, but keeping for compatibility)
+      if (result.otpRequired) {
+        error('OTP verification required. Please check your email.');
+        return;
+      }
+      
       success('Login successful! Welcome back!');
-    } catch (err) {
-      error('Invalid email or password');
+      // The AuthContext will handle the redirect by setting the user state
+    } catch (err: any) {
+      error(err.message || 'Invalid email or password');
     } finally {
       setLoading(false);
     }

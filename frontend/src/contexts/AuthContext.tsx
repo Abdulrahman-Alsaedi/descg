@@ -106,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.otp_required) {
+        setIsLoading(false);
         return { otpRequired: true };
       }
 
@@ -115,13 +116,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         await fetchUser();
       }
-
+      
+      setIsLoading(false);
       return {};
     } catch (error) {
       setIsLoading(false);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -156,11 +156,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         await fetchUser();
       }
+      
+      setIsLoading(false);
     } catch (error) {
       setIsLoading(false);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 

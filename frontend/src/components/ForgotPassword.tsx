@@ -36,7 +36,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ email, action: 'send_otp' }),
+        body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
@@ -44,8 +44,11 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
         throw new Error(errorData.message || 'Failed to send OTP');
       }
 
-      success('OTP sent to your email!');
-      setStep('otp');
+      const data = await response.json();
+      if (data.otp_required) {
+        success('OTP sent to your email!');
+        setStep('otp');
+      }
     } catch (err: any) {
       error(err.message || 'Failed to send OTP');
     } finally {
@@ -54,26 +57,11 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
   };
 
   const handleVerifyOTP = async (otpCode: string) => {
-    const response = await fetch('http://127.0.0.1:8000/api/password-reset', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ 
-        email, 
-        otp: otpCode, 
-        action: 'verify_otp' 
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Invalid OTP');
-    }
-
+    // For OTP verification, we'll set the OTP and move to reset step
+    // The actual verification happens when resetting the password
     setOtp(otpCode);
     setStep('reset');
+    return Promise.resolve();
   };
 
   const handleResendOTP = async () => {
@@ -83,7 +71,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({ email, action: 'send_otp' }),
+      body: JSON.stringify({ email }),
     });
 
     if (!response.ok) {
@@ -133,8 +121,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
           email, 
           otp, 
           password: newPassword,
-          password_confirmation: confirmPassword,
-          action: 'reset_password' 
+          type: 'password_reset'
         }),
       });
 
@@ -144,7 +131,10 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
       }
 
       success('Password reset successfully! You can now log in with your new password.');
-      onBack();
+      // Add a small delay to let user see the success message
+      setTimeout(() => {
+        onBack();
+      }, 2000);
     } catch (err: any) {
       error(err.message || 'Failed to reset password');
     } finally {
