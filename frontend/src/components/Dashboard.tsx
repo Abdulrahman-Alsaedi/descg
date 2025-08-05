@@ -15,109 +15,159 @@ export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const { success, error } = useToast();
   const [loading, setLoading] = useState<boolean>(true);
-  const [errorState, setErrorState] = useState<string | null>(null);
 
-  // Helper function to get auth headers
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     };
   };
 
-  const fetchProducts = () => {
-    setLoading(true);
-    // fetch('https://api.descg.store/api/products', {
-    fetch('http://127.0.0.1:8000/api/products', {
-      headers: getAuthHeaders()
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch products');
-        return res.json();
-      })
-      .then(data => setProducts(data))
-      .catch(err => error('Failed to load products. Please try again.'))
-      .finally(() => setLoading(false));
-  };
+  const fetchProducts = async () => {
+  setLoading(true);
+  try {
+    const response = await fetch('http://127.0.0.1:8000/api/salla/products', {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+
+    const data = await response.json();
+    console.log('Salla response:', data);
+
+    if (!response.ok) throw new Error(data.message || 'Failed to fetch');
+
+    // ✅ Directly handle the array (the response *is* the array)
+    const rawProducts = Array.isArray(data) ? data : data.products || data.data;
+
+    if (!Array.isArray(rawProducts)) {
+      throw new Error('Invalid response format: expected array');
+    }
+
+    const mappedProducts = rawProducts.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      features: Array.isArray(product.features) ? product.features : [],
+      keywords: Array.isArray(product.keywords) ? product.keywords : [],
+      price: product.price,
+      description: product.description || product.final_description,
+      aiGenerated: product.ai_provider === 'gemini',
+      thumbnail: product.thumbnail,
+      type: product.type,
+      tone: product.tone,
+      length: product.length,
+      language: product.language,
+      ai_provider: product.ai_provider,
+      final_description: product.final_description,
+    }));
+
+    setProducts(mappedProducts);
+  } catch (err) {
+    console.error('fetchProducts - error:', err);
+    error('Failed to load products. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
   const handleProductSave = async (product: Product) => {
-    setLoading(true);
-    try {
-      let response;
-      // Check if it's an existing product (has numeric ID, not temp ID)
-      // Also handle case where product was created during AI generation
-      const isExistingProduct = product.id && !product.id.toString().startsWith('temp_');
-      
-      console.log('Saving product:', product);
-      console.log('Is existing product:', isExistingProduct);
-      console.log('Product ID:', product.id);
-      
-      if (isExistingProduct) {
-        // response = await fetch(`https://api.descg.store/api/products/${product.id}`, {
-        response = await fetch(`http://127.0.0.1:8000/api/products/${product.id}`, {
-          method: 'PUT',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(product)
-        });
-      } else {
-        // response = await fetch('https://api.descg.store/api/products', {
-        response = await fetch('http://127.0.0.1:8000/api/products', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify(product)
-        }); 
-      }
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to save product');
-      }
-      
-      fetchProducts();
-      setEditingProduct(undefined);
-      setActiveTab('products');
-      
-      // Show success message
-      success(isExistingProduct ? 'Product updated successfully' : 'Product added successfully');
-      
-    } catch (err: any) {
-      // Show user-friendly error message
-      if (err.message.includes('validation')) {
-        error('Please fill all required fields');
-      } else if (err.message.includes('unauthorized')) {
-        error('You are not authorized to perform this action');
-      } else {
-        error('Failed to save product. Please try again.');
-      }
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const isExistingProduct = product.id && !product.id.toString().startsWith('temp_');
+
+    // Ensure required fields exist
+    if (!product.name || product.name.trim() === '') {
+      error('Product name is required.');
+      return;
     }
-  };
+
+    if (!product.sku || product.sku.trim() === '') {
+      product.sku = `SKU-${Date.now()}`;
+    }
+
+    // Use final_description if present
+    if (!product.description || product.description.trim() === '') {
+      product.description = product.final_description || '';
+    }
+
+    console.log('Product before sending:', product);
+
+    const url = isExistingProduct
+      ? `http://127.0.0.1:8000/api/salla/products/${product.id}`
+      : 'http://127.0.0.1:8000/api/salla/products';
+
+    const method = isExistingProduct ? 'PUT' : 'POST';
+if (!product.name || product.name.trim() === '') {
+  error('Product name is required.');
+  return;
+}
+
+if (!product.sku || product.sku.trim() === '') {
+  product.sku = `SKU-${Date.now()}`;
+}
+
+// Ensure final_description is set
+if (!product.final_description || product.final_description.trim() === '') {
+  product.final_description = product.description || '';
+}
+
+// Ensure description is set
+if (!product.description || product.description.trim() === '') {
+  product.description = product.final_description || '';
+}
+
+console.log('Product before sending:', product);
+    const response = await fetch(url, {
+      method,
+      headers: getAuthHeaders(),
+      body: JSON.stringify(product),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to save product');
+    }
+
+    await fetchProducts(); // Refresh list
+    setEditingProduct(undefined);
+    setActiveTab('products');
+    success(isExistingProduct ? 'Product updated successfully' : 'Product added successfully');
+  } catch (err: any) {
+    console.error('handleProductSave - error:', err);
+    if (err.message.includes('validation')) {
+      error('Please fill all required fields');
+    } else if (err.message.includes('unauthorized')) {
+      error('You are not authorized to perform this action');
+    } else {
+      error('Failed to save product. Please try again.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleProductDelete = async (productId: string) => {
     setLoading(true);
     try {
-      // const response = await fetch(`https://api.descg.store/api/products/${productId}`, {
       const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}`, {
         method: 'DELETE',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       });
+
       if (!response.ok) throw new Error('Failed to delete product');
-      
-      fetchProducts();
+
+      await fetchProducts();
       success('Product deleted successfully');
-      
     } catch (err: any) {
-      if (err.message.includes('unauthorized')) {
-        error('You are not authorized to delete this product');
-      } else {
-        error('Failed to delete product. Please try again.');
-      }
+      console.error('handleProductDelete - error:', err);
+      error(err.message || 'Failed to delete product. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -127,30 +177,21 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <div className="flex items-center mr-8">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                  <Sparkles className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold text-gray-900">AI Product Generator</h1>
+            <div className="flex items-center mr-8">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
+              <h1 className="text-2xl font-bold text-gray-900">AI Product Generator</h1>
             </div>
-            
             <div className="flex items-center space-x-4">
               <div className="flex items-center text-gray-700">
                 <User className="w-5 h-5 mr-2" />
                 <span className="font-medium">{user?.name}</span>
               </div>
-              <Button
-                onClick={logout}
-                variant="ghost"
-                size="sm"
-                icon={LogOut}
-              >
+              <Button onClick={logout} variant="ghost" size="sm" icon={LogOut}>
                 Logout
               </Button>
             </div>
@@ -159,7 +200,6 @@ export const Dashboard: React.FC = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation */}
         <Card className="mb-8">
           <div className="flex space-x-1">
             <Button
@@ -167,7 +207,7 @@ export const Dashboard: React.FC = () => {
                 setEditingProduct(undefined);
                 setActiveTab('products');
               }}
-              variant={(activeTab === 'products' || editingProduct) ? 'primary' : 'ghost'}
+              variant={activeTab === 'products' || editingProduct ? 'primary' : 'ghost'}
               icon={Package}
             >
               Products ({safeProducts.length}) {editingProduct ? '- Editing' : ''}
@@ -185,23 +225,18 @@ export const Dashboard: React.FC = () => {
           </div>
         </Card>
 
-        {/* Content */}
         {loading ? (
           <div className="text-center py-8 text-lg text-gray-500">Loading products...</div>
         ) : editingProduct ? (
           <ProductForm
             product={editingProduct}
             onSave={handleProductSave}
-            onCancel={() => {
-              setEditingProduct(undefined);
-            }}
+            onCancel={() => setEditingProduct(undefined)}
           />
         ) : activeTab === 'products' ? (
           <ProductList
-            products={products}
-            onEdit={(product) => {
-              setEditingProduct(product);
-            }}
+            products={safeProducts}
+            onEdit={(p) => setEditingProduct(p)}
             onDelete={handleProductDelete}
             onAddProduct={() => {
               setEditingProduct(undefined);
@@ -211,9 +246,7 @@ export const Dashboard: React.FC = () => {
         ) : (
           <ProductForm
             onSave={handleProductSave}
-            onCancel={() => {
-              setActiveTab('products');
-            }}
+            onCancel={() => setActiveTab('products')}
           />
         )}
       </div>

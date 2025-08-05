@@ -1,9 +1,12 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Models\User;
 use App\Models\Product;
-use Illuminate\Http\Request; // Add this line
+use Illuminate\Http\Request; 
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use App\Models\SallaToken;
 
 class ProductController extends Controller
 {
@@ -158,4 +161,167 @@ class ProductController extends Controller
         $product->delete();
         return response()->json(['message' => 'Product deleted successfully'], 200);
     }
+
+public function getProducts(Request $request)
+{
+    \Log::info('--- getProducts called ---');
+
+    $page = $request->query('page', 1);
+    $perPage = $request->query('per_page', 10);
+    \Log::info("Requested page: $page, per_page: $perPage");
+
+    $user = auth()->user();
+
+    if (!$user) {
+        \Log::error('User not authenticated');
+        return response()->json(['error' => 'Not authenticated'], 401);
+    }
+
+    \Log::info('Authenticated user ID: ' . $user->id);
+
+    // Check DB cache first
+    $products = Product::where('user_id', $user->id)->get();
+
+    if ($products->isNotEmpty() && now()->diffInMinutes($products->first()->updated_at) <= 10) {
+        \Log::info("Returning cached products from DB");
+        return response()->json($products);
+    }
+
+    \Log::info("No recent products in DB, fetching from Salla");
+
+    $tokenRecord = SallaToken::where('user_id', $user->id)->first();
+
+    if (!$tokenRecord || !$tokenRecord->access_token) {
+        \Log::error("Salla token NOT found for user ID: {$user->id}");
+        return response()->json(['error' => 'Salla access token not found'], 401);
+    }
+
+    $accessToken = $tokenRecord->access_token;
+    \Log::info("Salla token retrieved for user ID: {$user->id}");
+
+    // Log request being sent to Salla
+    \Log::info("Sending request to Salla API for products", [
+        'page' => $page,
+        'per_page' => $perPage
+    ]);
+
+    $response = Http::withHeaders([
+        'Authorization' => 'Bearer ' . $accessToken,
+        'Accept' => 'application/json'
+    ])->get('https://api.salla.dev/admin/v2/products', [
+        'page' => $page,
+        'per_page' => $perPage
+    ]);
+
+    if ($response->failed()) {
+        \Log::error('Salla API request FAILED', [
+            'status' => $response->status(),
+            'response' => $response->body()
+        ]);
+        return response()->json(['error' => 'Failed to fetch products from Salla'], $response->status());
+    }
+
+    \Log::info('Salla API request SUCCESS', [
+        'status' => $response->status(),
+        'response_sample' => substr($response->body(), 0, 500) // Prevent log overload
+    ]);
+
+    $sallaProducts = $response->json()['data'] ?? [];
+
+    foreach ($sallaProducts as $prod) {
+        \Log::info("Saving product: {$prod['id']} - {$prod['name']}");
+    Product::updateOrCreate(
+    ['salla_id' => $prod['id'], 'user_id' => $user->id],
+    [
+        'salla_id' => $prod['id'],
+        'user_id' => $user->id,
+        'name' => $prod['name'] ?? '',
+        'sku' => $prod['sku'] ?? '',
+        'thumbnail' => $prod['thumbnail'] ?? '',
+        'price' => $prod['price']['amount'] ?? 0,
+        'type' => $prod['type'] ?? '',
+         'final_description' => $prod['description'] ?? '',
+    ]
+);
+    }
+
+    
+    $products = Product::where('user_id', $user->id)->get();
+
+  return response()->json($products);
+}
+
+
+
+public function updateProduct(Request $request, $id)
+{
+    \Log::info('🟢 Update product request received', ['id' => $id, 'request' => $request->all()]);
+
+    // Find the product
+    $product = Product::findOrFail($id);
+    \Log::info('🔍 Product found', ['product' => $product]);
+
+    // Retrieve the real SKU from the database
+    $realSku = Product::where('user_id', $product->user_id)->where('id', $id)->value('sku');
+    if ($realSku) {
+        \Log::info('✅ Real SKU retrieved from database', ['sku' => $realSku]);
+    } else {
+        \Log::warning('⚠️ Real SKU not found in database for product', ['id' => $id]);
+        return response()->json(['error' => 'Real SKU not found'], 404);
+    }
+
+    // Retrieve the Salla access token
+    $tokenRecord = SallaToken::where('user_id', $product->user_id)->first();
+    if (!$tokenRecord || !$tokenRecord->access_token) {
+        \Log::error("Salla token NOT found for user ID: {$product->user_id}");
+        return response()->json(['error' => 'Salla access token not found'], 401);
+    }
+    $sallaToken = $tokenRecord->access_token;
+    \Log::info("Salla token retrieved for user ID: {$product->user_id}");
+
+    // Don't overwrite the SKU in the database
+    $product->fill($request->except('sku'));
+    $product->save();
+    \Log::info('✅ Product updated locally', ['product' => $product]);
+
+    \Log::info('Sending product to Salla API', ['sku' => $realSku, 'product' => $product]);
+    // Then send update to Salla
+    try {
+        $client = new \GuzzleHttp\Client();
+        $response = $client->put("https://api.salla.dev/admin/v2/products/sku/{$realSku}", [
+            'headers' => [
+                'Authorization' => "Bearer {$sallaToken}",
+                'Content-Type' => 'application/json',
+            ],
+            'json' => [
+                'description' => $product->final_description ?? $product->description,
+            ],
+        ]);
+
+        if (!in_array($response->getStatusCode(), [200, 201])) {
+    \Log::error('❌ Failed to update Salla product description', [
+        'sku' => $realSku,
+        'response' => (string)$response->getBody(),
+    ]);
+} else {
+    \Log::info('✅ Product successfully updated on Salla', [
+        'sku' => $realSku,
+        'response' => (string)$response->getBody(),
+    ]);
+}
+
+    } catch (\Exception $e) {
+        \Log::error('🔥 Exception during product update', ['id' => $id, 'error' => $e->getMessage()]);
+    }
+
+    return response()->json([
+        'message' => 'Product updated successfully',
+        'product' => $product,
+    ]);
+}
+
+
+
+
+
 }

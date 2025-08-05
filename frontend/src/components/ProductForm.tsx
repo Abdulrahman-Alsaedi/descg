@@ -317,12 +317,18 @@ export const ProductForm: React.FC<ProductFormProps> = ({ product, onSave, onCan
       category: formData.category,
       features: formData.features,
       keywords: formData.keywords,
-      price: formData.price,
+      price: String(formData.price),
       description: formData.description,
       image_url: formData.image_url,
       aiGenerated: !!generatedDescription && formData.description === generatedDescription,
-      createdAt: product?.createdAt || new Date(),
-      updatedAt: new Date()
+      sku: '',
+      thumbnail: '',
+      tone: null,
+      length: null,
+      language: '',
+      ai_provider: '',
+      final_description: null,
+      type: ''
     };
 
     onSave(productData);

@@ -9,7 +9,7 @@ class sallaProducts extends Model
     protected $table = 'salla_products';
 
    protected $fillable = [
-    'salla_product_id', 'merchant_id', 'name', 'price', 'type',
+    'salla_product_id', 'merchant_id', 'name', 'price', 'type','sku',
     'taxed_price', 'tax', 'quantity', 'status', 'is_available', 'url'
 ];
 

@@ -4,6 +4,13 @@ export const getDefaultProductImage = (productName: string): string => {
   return createDefaultPlaceholder(productName);
 };
 
+const base64EncodeUnicode = (str: string): string => {
+  const utf8Bytes = new TextEncoder().encode(str);
+  let binary = '';
+  utf8Bytes.forEach((b) => (binary += String.fromCharCode(b)));
+  return btoa(binary);
+};
+
 // Create a simple SVG placeholder
 const createDefaultPlaceholder = (productName: string): string => {
   const svg = `
@@ -18,7 +25,7 @@ const createDefaultPlaceholder = (productName: string): string => {
     </svg>
   `;
   
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  return `data:image/svg+xml;base64,${base64EncodeUnicode(svg)}`;
 };
 
 // Function to validate if image URL is accessible

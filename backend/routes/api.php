@@ -36,6 +36,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/upload/image', [ImageUploadController::class, 'upload']);   // Upload product image
     Route::delete('/upload/image', [ImageUploadController::class, 'delete']); // Delete product image
 
+    // Image Upload Routes
+    Route::post('/upload/image', [ImageUploadController::class, 'upload']);   // Upload product image
+    Route::delete('/upload/image', [ImageUploadController::class, 'delete']); // Delete product image
+
+    Route::get('/salla/products', [ProductController::class, 'getProducts']);
+    Route::put('salla/products/{id}', [ProductController::class, 'updateProduct']);
     // AiDescriptionLog CRUD
     Route::get('/ai-description-logs', [AiDescriptionLogController::class, 'index']);
     Route::get('/ai-description-logs/fetchByProduct', [AiDescriptionLogController::class, 'fetchByProduct']);
@@ -46,5 +52,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/ai-description-logs/generate/{id}', [AiDescriptionLogController::class, 'generateDescription']);
     Route::get('/ai-description/extract/{logId}/{language}', [AiDescriptionLogController::class, 'getDescriptionByLanguage'])
         ->whereIn('language', ['العربية', 'English']);
+
+    
+
+   
 });
     Route::post('/salla/webhook', [SallaWebhookController::class, 'handle']);
+
+
+
+    
+    
+
