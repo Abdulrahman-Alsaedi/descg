@@ -30,7 +30,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/password-reset', {
+      const response = await fetch('https://api.descg.store/api/password-reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
   };
 
   const handleResendOTP = async () => {
-    const response = await fetch('http://127.0.0.1:8000/api/password-reset', {
+    const response = await fetch('https://api.descg.store/api/password-reset', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,7 +111,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBack }) => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/password-reset', {
+      const response = await fetch('https://api.descg.store/api/password-reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

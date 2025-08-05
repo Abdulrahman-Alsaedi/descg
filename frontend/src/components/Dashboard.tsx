@@ -157,7 +157,7 @@ export const Dashboard: React.FC = () => {
   const handleProductDelete = async (productId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}`, {
+      const response = await fetch(`https://api.descg.store/api/products/${productId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });

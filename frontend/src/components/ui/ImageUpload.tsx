@@ -43,7 +43,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       formData.append('image', file);
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://127.0.0.1:8000/api/upload/image', {
+      const response = await fetch('https://api.descg.store/api/upload/image', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

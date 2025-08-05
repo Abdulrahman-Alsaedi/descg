@@ -24,7 +24,7 @@ export const generateDescription = async (request: AIGenerationRequest, existing
 
     // Only create a new product if we don't have an existing one
     if (!productId) {
-      const productResponse = await fetch('http://127.0.0.1:8000/api/products', {
+      const productResponse = await fetch('https://api.descg.store/api/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ export const generateDescription = async (request: AIGenerationRequest, existing
     }
 
     // Generate AI description using the product ID
-    const aiResponse = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/generate/${productId}`, {
+    const aiResponse = await fetch(`https://api.descg.store/api/ai-description-logs/generate/${productId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export const generateDescription = async (request: AIGenerationRequest, existing
     
     // If we got a successful response, get the AI logs for this product to retrieve the generated description
     if (aiData.success) {
-      const logsResponse = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/${productId}`, {
+      const logsResponse = await fetch(`https://api.descg.store/api/ai-description-logs/${productId}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -145,7 +145,7 @@ export const getAILogs = async () => {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch('http://127.0.0.1:8000/api/ai-description-logs', {
+    const response = await fetch('https://api.descg.store/api/ai-description-logs', {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -172,7 +172,7 @@ export const getProductAILogs = async (productId: string | number) => {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/${productId}`, {
+    const response = await fetch(`https://api.descg.store/api/ai-description-logs/${productId}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -199,7 +199,7 @@ export const getAIHistoryForProduct = async (productId: string): Promise<AIDescr
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`http://127.0.0.1:8000/api/ai-description-logs/fetchByProduct?product_id=${productId}`, {
+    const response = await fetch(`https://api.descg.store/api/ai-description-logs/fetchByProduct?product_id=${productId}`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -241,7 +241,7 @@ export const deleteProduct = async (productId: string): Promise<void> => {
       throw new Error('Authentication required');
     }
 
-    const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}`, {
+    const response = await fetch(`https://api.descg.store/api/products/${productId}`, {
       method: 'DELETE',
       headers: {
         'Accept': 'application/json',

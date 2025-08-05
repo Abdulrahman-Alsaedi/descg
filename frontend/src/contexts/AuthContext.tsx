@@ -59,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/user', {
+      const res = await fetch('https://api.descg.store/api/user', {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
@@ -90,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const payload = { email, password };
 
-      const response = await fetch('http://127.0.0.1:8000/api/login', {
+      const response = await fetch('https://api.descg.store/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: 'login',
       };
 
-      const response = await fetch('http://127.0.0.1:8000/api/login', {
+      const response = await fetch('https://api.descg.store/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -188,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (sallaData.salla_state) payload.salla_state = sallaData.salla_state;
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/register', {
+      const response = await fetch('https://api.descg.store/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -248,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (sallaData.salla_state) payload.salla_state = sallaData.salla_state;
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/register', {
+      const response = await fetch('https://api.descg.store/api/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -279,7 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resendOTP = async (email: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/otp/resend', {
+      const response = await fetch('https://api.descg.store/api/otp/resend', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
