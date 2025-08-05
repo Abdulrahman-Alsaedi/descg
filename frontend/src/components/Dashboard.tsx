@@ -28,7 +28,7 @@ export const Dashboard: React.FC = () => {
   const fetchProducts = async () => {
   setLoading(true);
   try {
-    const response = await fetch('http://127.0.0.1:8000/api/salla/products', {
+    const response = await fetch('https://api.descg.store/api/salla/products', {
       method: 'GET',
       headers: getAuthHeaders(),
     });
@@ -100,30 +100,31 @@ export const Dashboard: React.FC = () => {
     console.log('Product before sending:', product);
 
     const url = isExistingProduct
-      ? `http://127.0.0.1:8000/api/salla/products/${product.id}`
-      : 'http://127.0.0.1:8000/api/salla/products';
+      ? `https://api.descg.store/api/salla/products/${product.id}`
+      : 'https://api.descg.store/api/salla/products';
 
     const method = isExistingProduct ? 'PUT' : 'POST';
-if (!product.name || product.name.trim() === '') {
-  error('Product name is required.');
-  return;
-}
 
-if (!product.sku || product.sku.trim() === '') {
-  product.sku = `SKU-${Date.now()}`;
-}
+    if (!product.name || product.name.trim() === '') {
+      error('Product name is required.');
+      return;
+    }
 
-// Ensure final_description is set
-if (!product.final_description || product.final_description.trim() === '') {
-  product.final_description = product.description || '';
-}
+    if (!product.sku || product.sku.trim() === '') {
+      product.sku = `SKU-${Date.now()}`;
+    }
 
-// Ensure description is set
-if (!product.description || product.description.trim() === '') {
-  product.description = product.final_description || '';
-}
+    // Ensure final_description is set
+    if (!product.final_description || product.final_description.trim() === '') {
+      product.final_description = product.description || '';
+    }
 
-console.log('Product before sending:', product);
+    // Ensure description is set
+    if (!product.description || product.description.trim() === '') {
+      product.description = product.final_description || '';
+    }
+
+    console.log('Product before sending:', product);
     const response = await fetch(url, {
       method,
       headers: getAuthHeaders(),
