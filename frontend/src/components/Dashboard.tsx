@@ -81,7 +81,8 @@ export const Dashboard: React.FC = () => {
   const handleProductSave = async (product: Product) => {
   setLoading(true);
   try {
-    const isExistingProduct = product.sku && product.sku.trim() !== '';
+   const isSallaProduct = product.salla_id !== undefined && product.salla_id !== null;
+const isLocalProduct = !isSallaProduct && product.sku && product.sku.startsWith('SKU-');  
 
     // Ensure required fields exist
     if (!product.name || product.name.trim() === '') {
@@ -104,18 +105,22 @@ export const Dashboard: React.FC = () => {
 
     console.log('Product before sending:', product);
 
-    let url;
-    let method;
+    let url: string;
+let method: 'POST' | 'PUT';
 
-    if (isExistingProduct) {
-      // Update product if SKU exists
-      url = `https://api.descg.store/api/salla/products/${product.sku}`;
-      method = 'PUT';
-    } else {
-      // Save to database if no existing SKU
-      url = 'https://api.descg.store/api/products';
-      method = 'POST';
-    }
+if (isSallaProduct) {
+  // ✅ Don’t allow updating Salla products directly — show an error or handle differently
+  error('Salla-synced products cannot be updated from this dashboard.');
+  setLoading(false);
+  return;
+} else if (isLocalProduct) {
+  url = `https://api.descg.store/api/salla/products/${product.sku}`;
+  method = 'PUT';
+} else {
+  url = 'https://api.descg.store/api/products';
+  method = 'POST';
+}
+
 
     const response = await fetch(url, {
       method,
@@ -131,7 +136,7 @@ export const Dashboard: React.FC = () => {
     await fetchProducts(); // Refresh list
     setEditingProduct(undefined);
     setActiveTab('products');
-    success(isExistingProduct ? 'Product updated successfully' : 'Product added successfully');
+    success(editingProduct ? 'Product updated successfully' : 'Product added successfully');
   } catch (err: any) {
     console.error('handleProductSave - error:', err);
     if (err.message.includes('validation')) {
