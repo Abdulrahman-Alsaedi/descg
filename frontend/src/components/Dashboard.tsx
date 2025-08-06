@@ -62,6 +62,7 @@ export const Dashboard: React.FC = () => {
       language: product.language,
       ai_provider: product.ai_provider,
       final_description: product.final_description,
+      salla_id: product.salla_id, // Use salla_id if available, otherwise fallback to id
     }));
 
     setProducts(mappedProducts);
@@ -80,7 +81,7 @@ export const Dashboard: React.FC = () => {
   const handleProductSave = async (product: Product) => {
   setLoading(true);
   try {
-    const isExistingProduct = product.id && !product.id.toString().startsWith('temp_');
+    const isExistingProduct = product.sku && product.sku.trim() !== '';
 
     // Ensure required fields exist
     if (!product.name || product.name.trim() === '') {
@@ -106,14 +107,12 @@ export const Dashboard: React.FC = () => {
     let url;
     let method;
 
-    if (product.salla_id) {
-      // Save to Salla if salla_id exists
-      url = isExistingProduct
-        ? `https://api.descg.store/api/salla/products/${product.id}`
-        : 'https://api.descg.store/api/salla/products';
-      method = isExistingProduct ? 'PUT' : 'POST';
+    if (isExistingProduct) {
+      // Update product if SKU exists
+      url = `https://api.descg.store/api/salla/products/${product.sku}`;
+      method = 'PUT';
     } else {
-      // Save to database if no salla_id
+      // Save to database if no existing SKU
       url = 'https://api.descg.store/api/products';
       method = 'POST';
     }
