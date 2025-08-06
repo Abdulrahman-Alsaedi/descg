@@ -1,4 +1,4 @@
-  export interface User {
+export interface User {
     id: string;
     email: string;
     name: string;
@@ -23,6 +23,7 @@
   aiGenerated?: boolean;        
   description?: string; 
   image_url?: string;
+  salla_id?: string; // Added salla_id property
 }
 
 

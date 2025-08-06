@@ -97,34 +97,27 @@ export const Dashboard: React.FC = () => {
       product.description = product.final_description || '';
     }
 
-    console.log('Product before sending:', product);
-
-    const url = isExistingProduct
-      ? `https://api.descg.store/api/salla/products/${product.id}`
-      : 'https://api.descg.store/api/salla/products';
-
-    const method = isExistingProduct ? 'PUT' : 'POST';
-
-    if (!product.name || product.name.trim() === '') {
-      error('Product name is required.');
-      return;
-    }
-
-    if (!product.sku || product.sku.trim() === '') {
-      product.sku = `SKU-${Date.now()}`;
-    }
-
-    // Ensure final_description is set
-    if (!product.final_description || product.final_description.trim() === '') {
-      product.final_description = product.description || '';
-    }
-
-    // Ensure description is set
-    if (!product.description || product.description.trim() === '') {
-      product.description = product.final_description || '';
+    if (!product.language || product.language.trim() === '') {
+      product.language = 'English'; 
     }
 
     console.log('Product before sending:', product);
+
+    let url;
+    let method;
+
+    if (product.salla_id) {
+      // Save to Salla if salla_id exists
+      url = isExistingProduct
+        ? `https://api.descg.store/api/salla/products/${product.id}`
+        : 'https://api.descg.store/api/salla/products';
+      method = isExistingProduct ? 'PUT' : 'POST';
+    } else {
+      // Save to database if no salla_id
+      url = 'https://api.descg.store/api/products';
+      method = 'POST';
+    }
+
     const response = await fetch(url, {
       method,
       headers: getAuthHeaders(),
@@ -157,7 +150,7 @@ export const Dashboard: React.FC = () => {
   const handleProductDelete = async (productId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`https://api.descg.store/api/products/${productId}`, {
+      const response = await fetch(`http://127.0.0.1:8000/api/products/${productId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
